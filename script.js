@@ -104,7 +104,7 @@ Keep the tone supportive, specific, and concise. Do not use bullet points. Speak
         },
         body: JSON.stringify({
           model: "llama3-8b-8192",
-          messages: [{ role: "user", content: prompt }],
+          messages: [{ role: "user", content: prompt.trim() }],
           max_tokens: 150
         })
       }
