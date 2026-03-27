@@ -1,5 +1,5 @@
 /* ─── Gemini API Key ─── */
-const GEMINI_API_KEY = "AIzaSyCDu8yXzXGvE8-80JP2wyl3hESwzaFsX2s";
+const GEMINI_API_KEY = "AIzaSyA0-hq3GpiZUKfcCdXffXvGXkPZMnKnckQ";
 
 /* ─── Slider sync ─── */
 function syncField(fieldId, rangeId) {
