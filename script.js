@@ -1,3 +1,6 @@
+/* ─── Gemini API Key ─── */
+const GEMINI_API_KEY = "AIzaSyCDu8yXzXGvE8-80JP2wyl3hESwzaFsX2s";
+
 /* ─── Slider sync ─── */
 function syncField(fieldId, rangeId) {
   document.getElementById(fieldId).value = document.getElementById(rangeId).value;
@@ -6,8 +9,109 @@ function syncRange(fieldId, rangeId) {
   document.getElementById(rangeId).value = document.getElementById(fieldId).value;
 }
 
+/* ─── Adaptive Weights ─── */
+const DEFAULT_WEIGHTS = {
+  sleep: 30,
+  study: 25,
+  assignment: 25,
+  screen: 25,
+  stress: 30
+};
+
+function getAdaptiveWeights() {
+  const data = JSON.parse(localStorage.getItem("burnoutData")) || [];
+
+  // Need at least 5 entries to start adapting
+  if (data.length < 5) return DEFAULT_WEIGHTS;
+
+  const last = data.slice(-10); // use last 10 entries
+
+  // Calculate how much each factor varies on high-score days vs low-score days
+  const highDays = last.filter(e => e.score > 50);
+  const lowDays  = last.filter(e => e.score <= 50);
+
+  if (highDays.length === 0 || lowDays.length === 0) return DEFAULT_WEIGHTS;
+
+  const avg = (arr, key) => arr.reduce((s, e) => s + (e[key] || 0), 0) / arr.length;
+
+  const diff = {
+    sleep:      avg(highDays, 'sleep')      - avg(lowDays, 'sleep'),      // negative = more sleep on low days (good)
+    study:      avg(highDays, 'study')      - avg(lowDays, 'study'),
+    assignment: avg(highDays, 'assignment') - avg(lowDays, 'assignment'),
+    screen:     avg(highDays, 'screen')     - avg(lowDays, 'screen'),
+    stress:     avg(highDays, 'stress')     - avg(lowDays, 'stress'),
+  };
+
+  // Build weights — bigger difference = bigger impact on your burnout
+  const weights = { ...DEFAULT_WEIGHTS };
+  const factors = ['study', 'assignment', 'screen', 'stress'];
+
+  factors.forEach(f => {
+    if (diff[f] > 2)       weights[f] = Math.min(DEFAULT_WEIGHTS[f] + 10, 40);
+    else if (diff[f] > 1)  weights[f] = DEFAULT_WEIGHTS[f] + 5;
+    else if (diff[f] < 0)  weights[f] = Math.max(DEFAULT_WEIGHTS[f] - 5, 10);
+  });
+
+  // Sleep is inverse — more sleep on high days = sleep isn't the issue
+  if (diff.sleep > 1)       weights.sleep = Math.max(DEFAULT_WEIGHTS.sleep - 5, 10);
+  else if (diff.sleep < -1) weights.sleep = Math.min(DEFAULT_WEIGHTS.sleep + 10, 40);
+
+  return weights;
+}
+
+/* ─── LLM Explainability ─── */
+async function getAIExplanation(inputs, score, risk, history) {
+
+  // Calculate personal averages from history for context
+  const last7 = history.slice(-7);
+  const avgScore  = last7.length ? Math.round(last7.reduce((s,e) => s + e.score, 0) / last7.length) : null;
+  const avgSleep  = last7.length ? (last7.reduce((s,e) => s + (e.sleep  || 0), 0) / last7.length).toFixed(1) : null;
+  const avgStress = last7.length ? (last7.reduce((s,e) => s + (e.stress || 0), 0) / last7.length).toFixed(1) : null;
+
+  const historyContext = avgScore !== null
+    ? `The user's 7-day averages are: burnout score ${avgScore}/120, sleep ${avgSleep} hrs, stress ${avgStress}/10.`
+    : `This is one of the user's first entries, so no historical average is available yet.`;
+
+  const prompt = `
+You are a burnout analysis assistant for a student health app. Based on the data below, write a short personalized explanation (2-3 sentences max) telling the student:
+1. What is driving their burnout risk today
+2. One specific actionable suggestion based on their worst factor
+
+Today's data:
+- Burnout Score: ${score}/120
+- Risk Level: ${risk}
+- Sleep: ${inputs.sleep} hours
+- Study Hours: ${inputs.study} hours
+- Assignment Load: ${inputs.assignment}/5
+- Screen Time: ${inputs.screen} hours
+- Stress Level: ${inputs.stress}/10
+- Session: ${inputs.session}
+
+${historyContext}
+
+Keep the tone supportive, specific, and concise. Do not use bullet points. Speak directly to the student.
+  `.trim();
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      }
+    );
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (e) {
+    return null; // fallback to hardcoded message if API fails
+  }
+}
+
 /* ─── Analyze ─── */
-function analyze() {
+async function analyze() {
   let study      = +document.getElementById("study").value || 0;
   let sleep      = +document.getElementById("sleep").value || 0;
   let assignment = +document.getElementById("assignment").value || 0;
@@ -15,12 +119,14 @@ function analyze() {
   let stress     = +document.getElementById("stress").value || 0;
   let session    = document.getElementById("session").value;
 
+  const w = getAdaptiveWeights();
   let score = 0;
-  if (sleep <= 4) score += 30; else if (sleep == 5) score += 20; else if (sleep == 6) score += 10;
-  if (study > 10) score += 25; else if (study >= 9) score += 20; else if (study >= 7) score += 10;
-  if (assignment >= 4) score += 25; else if (assignment == 3) score += 15; else if (assignment == 2) score += 10;
-  if (screen > 10) score += 25; else if (screen >= 8) score += 20; else if (screen >= 5) score += 10;
-  if (stress >= 9) score += 30; else if (stress >= 7) score += 20; else if (stress >= 4) score += 10;
+  if (sleep <= 4) score += w.sleep; else if (sleep == 5) score += w.sleep * 0.67; else if (sleep == 6) score += w.sleep * 0.33;
+  if (study > 10) score += w.study; else if (study >= 9) score += w.study * 0.8; else if (study >= 7) score += w.study * 0.4;
+  if (assignment >= 4) score += w.assignment; else if (assignment == 3) score += w.assignment * 0.6; else if (assignment == 2) score += w.assignment * 0.4;
+  if (screen > 10) score += w.screen; else if (screen >= 8) score += w.screen * 0.8; else if (screen >= 5) score += w.screen * 0.4;
+  if (stress >= 9) score += w.stress; else if (stress >= 7) score += w.stress * 0.67; else if (stress >= 4) score += w.stress * 0.33;
+  score = Math.round(score);
 
   let risk = "Low";
   if (score > 70) risk = "High";
@@ -36,11 +142,26 @@ function analyze() {
 
   updateRing(probability, risk);
   updateRiskBadge(risk);
-  giveRecommendation(risk);
+
+  // Show loading text while waiting for AI
+  const recBox = document.getElementById("recommendation");
+  recBox.innerText = "✦ Analyzing your data...";
+  recBox.style.borderLeftColor = "var(--accent)";
+
+  // Call Gemini
+  const history = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const aiText = await getAIExplanation({ sleep, study, assignment, screen, stress, session }, score, risk, history);
+
+  if (aiText) {
+    recBox.innerText = aiText;
+    recBox.style.borderLeftColor = risk === "Low" ? "var(--low)" : risk === "Moderate" ? "var(--mid)" : "var(--high)";
+  } else {
+    giveRecommendation(risk); // fallback to hardcoded if API fails or offline
+  }
 
   /* Save */
   let data = JSON.parse(localStorage.getItem("burnoutData")) || [];
-  data.push({ datetime: new Date().toISOString(), score, risk, session });
+  data.push({ datetime: new Date().toISOString(), score, risk, session, sleep, study, assignment, screen, stress });
   localStorage.setItem("burnoutData", JSON.stringify(data));
 
   checkTrend(data);
