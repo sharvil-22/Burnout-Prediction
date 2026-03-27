@@ -1,5 +1,5 @@
 /* ─── Gemini API Key ─── */
-const GEMINI_API_KEY = "API_KEY";
+const GEMINI_API_KEY = "API_Key";
 
 /* ─── Slider sync ─── */
 function syncField(fieldId, rangeId) {
@@ -125,6 +125,39 @@ async function analyze() {
   let stress     = +document.getElementById("stress").value || 0;
   let session    = document.getElementById("session").value;
 
+  /* ─── Input Validation ─── */
+  const msg = document.getElementById("message");
+  if (sleep < 1 || sleep > 10) {
+    msg.style.color = "var(--high)";
+    msg.innerText = "⚠ Sleep hours must be between 1 and 10.";
+    setTimeout(() => { msg.innerText = ""; msg.style.color = "var(--low)"; }, 3000);
+    return;
+  }
+  if (study < 0 || study > 12) {
+    msg.style.color = "var(--high)";
+    msg.innerText = "⚠ Study hours must be between 0 and 12.";
+    setTimeout(() => { msg.innerText = ""; msg.style.color = "var(--low)"; }, 3000);
+    return;
+  }
+  if (assignment < 0 || assignment > 5) {
+    msg.style.color = "var(--high)";
+    msg.innerText = "⚠ Assignment load must be between 0 and 5.";
+    setTimeout(() => { msg.innerText = ""; msg.style.color = "var(--low)"; }, 3000);
+    return;
+  }
+  if (screen < 0 || screen > 12) {
+    msg.style.color = "var(--high)";
+    msg.innerText = "⚠ Screen time must be between 0 and 12.";
+    setTimeout(() => { msg.innerText = ""; msg.style.color = "var(--low)"; }, 3000);
+    return;
+  }
+  if (stress < 1 || stress > 10) {
+    msg.style.color = "var(--high)";
+    msg.innerText = "⚠ Stress level must be between 1 and 10.";
+    setTimeout(() => { msg.innerText = ""; msg.style.color = "var(--low)"; }, 3000);
+    return;
+  }
+
   const w = getAdaptiveWeights();
   let score = 0;
   if (sleep <= 4) score += w.sleep; else if (sleep == 5) score += w.sleep * 0.67; else if (sleep == 6) score += w.sleep * 0.33;
@@ -175,7 +208,6 @@ async function analyze() {
   drawChart();
 
   /* Flash message */
-  const msg = document.getElementById("message");
   msg.innerText = "✓ Analysis saved";
   setTimeout(() => { msg.innerText = ""; }, 2000);
 }
