@@ -103,7 +103,7 @@ Keep the tone supportive, specific, and concise. Do not use bullet points. Speak
           "Authorization": `Bearer ${GEMINI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "llama3-8b-8192",
+          model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt.trim() }],
           max_tokens: 150
         })
