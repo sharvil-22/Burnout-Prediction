@@ -96,7 +96,7 @@ Keep the tone supportive, specific, and concise. Do not use bullet points. Speak
     // Small delay to avoid rate limiting during rapid testing
     await new Promise(r => setTimeout(r, 1000));
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
