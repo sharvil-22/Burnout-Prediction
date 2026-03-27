@@ -1,5 +1,5 @@
 /* ─── Gemini API Key ─── */
-const GEMINI_API_KEY = "AIzaSyA0-hq3GpiZUKfcCdXffXvGXkPZMnKnckQ";
+const GEMINI_API_KEY = "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";
 
 /* ─── Slider sync ─── */
 function syncField(fieldId, rangeId) {
@@ -93,20 +93,24 @@ Keep the tone supportive, specific, and concise. Do not use bullet points. Speak
   `.trim();
 
   try {
-    // Small delay to avoid rate limiting during rapid testing
     await new Promise(r => setTimeout(r, 1000));
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+      `https://api.groq.com/openai/v1/chat/completions`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${GEMINI_API_KEY}`
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          model: "llama3-8b-8192",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 150
         })
       }
     );
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    return data.choices?.[0]?.message?.content || null;
   } catch (e) {
     return null; // fallback to hardcoded message if API fails
   }
