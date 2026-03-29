@@ -1,6 +1,43 @@
 /* ─── Gemini API Key ─── */
 const GEMINI_API_KEY = "API_Key";
 
+/* ─── Encryption ─── */
+function generateUserKey() {
+  const fingerprint = navigator.userAgent + screen.width + screen.height + Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return CryptoJS.SHA256(fingerprint).toString().substring(0, 32);
+}
+
+function encryptData(data) {
+  const key = generateUserKey();
+  return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+}
+
+function decryptData(ciphertext) {
+  try {
+    const key = generateUserKey();
+    const bytes = CryptoJS.AES.decrypt(ciphertext, key);
+    return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveData(data) {
+  localStorage.setItem("burnoutData", encryptData(data));
+}
+
+function loadData() {
+  const raw = localStorage.getItem("burnoutData");
+  if (!raw) return [];
+  try {
+    // Try decrypt first (encrypted data)
+    return decryptData(raw);
+  } catch {
+    // If old plain data exists, migrate it
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+}
+
 /* ─── Slider sync ─── */
 function syncField(fieldId, rangeId) {
   document.getElementById(fieldId).value = document.getElementById(rangeId).value;
@@ -19,7 +56,7 @@ const DEFAULT_WEIGHTS = {
 };
 
 function getAdaptiveWeights() {
-  const data = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const data = loadData();
 
   // Need at least 5 entries to start adapting
   if (data.length < 5) return DEFAULT_WEIGHTS;
@@ -188,7 +225,7 @@ async function analyze() {
   recBox.style.borderLeftColor = "var(--accent)";
 
   // Call Gemini
-  const history = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const history = loadData();
   const aiText = await getAIExplanation({ sleep, study, assignment, screen, stress, session }, score, risk, history);
 
   if (aiText) {
@@ -199,9 +236,9 @@ async function analyze() {
   }
 
   /* Save */
-  let data = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  let data = loadData();
   data.push({ datetime: new Date().toISOString(), score, risk, session, sleep, study, assignment, screen, stress });
-  localStorage.setItem("burnoutData", JSON.stringify(data));
+  saveData(data);
 
   checkTrend(data);
   updateSummary(data);
@@ -289,7 +326,7 @@ function updateSummary(data) {
 let chartInstance = null;
 
 function drawChart() {
-  const data  = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const data  = loadData();
   const last7 = data.slice(-7);
   const ctx   = document.getElementById("trendChart");
   if (!ctx) return;
@@ -346,7 +383,7 @@ function drawChart() {
 
 /* ─── History Page ─── */
 function loadHistory() {
-  const data  = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const data  = loadData();
   const table = document.getElementById("historyTable");
   const count = document.getElementById("recordCount");
   if (!table) return;
@@ -387,7 +424,7 @@ function loadHistory() {
 loadHistory();
 drawChart();
 
-const savedData = JSON.parse(localStorage.getItem("burnoutData")) || [];
+const savedData = loadData();
 if (savedData.length > 0) {
   checkTrend(savedData);
   updateSummary(savedData);
