@@ -416,7 +416,13 @@
 <div class="hm-tooltip" id="hmTooltip"></div>
 
 <script>
-  const data = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const raw = localStorage.getItem("burnoutData");
+  let data = [];
+  try {
+    const key = CryptoJS.SHA256(navigator.userAgent + screen.width + screen.height + Intl.DateTimeFormat().resolvedOptions().timeZone).toString().substring(0, 32);
+    const bytes = CryptoJS.AES.decrypt(raw, key);
+    data = JSON.parse(bytes.toString(CryptoJS.enc.Utf8)) || [];
+  } catch(e) { data = []; }
 
   // Group by date → avg score + dominant risk
   const byDate = {};

@@ -387,7 +387,13 @@
 </div>
 
 <script>
-  const allData = JSON.parse(localStorage.getItem("burnoutData")) || [];
+  const raw = localStorage.getItem("burnoutData");
+  let allData = [];
+  try {
+    const key = CryptoJS.SHA256(navigator.userAgent + screen.width + screen.height + Intl.DateTimeFormat().resolvedOptions().timeZone).toString().substring(0, 32);
+    const bytes = CryptoJS.AES.decrypt(raw, key);
+    allData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8)) || [];
+  } catch(e) { allData = []; }
   let weekOffset = 0;
 
   function getWeekRange(offset) {
