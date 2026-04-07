@@ -1,5 +1,5 @@
 /* ─── Gemini API Key ─── */
-const GEMINI_API_KEY = "API_Key";
+const GEMINI_API_KEY = "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";
 
 /* ─── Encryption ─── */
 function generateUserKey() {
