@@ -1,4 +1,4 @@
-const CACHE_NAME = 'burnout-pwa-v3';
+const CACHE_NAME = 'burnout-pwa-v5';
 const FILES_TO_CACHE = [
   './index.html',
   './history.html',
